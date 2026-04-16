@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Irrigation Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="flex justify-between items-center mb-8 bg-white p-4 rounded-xl shadow-sm">
+            <h1 class="text-2xl font-bold text-green-700"><i class="fa-solid fa-leaf mr-2"></i>Smart Irrigation</h1>
+            
+            <div class="flex items-center space-x-3">
+                <span class="text-gray-700 font-medium text-sm">Weather API Verification</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="api-toggle" class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                </label>
+            </div>
+        </header>
+
+        <!-- Current Status Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Soil Moisture -->
+            <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-amber-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">Soil Moisture (ADC)</p>
+                        <p class="text-3xl font-bold text-gray-800 mt-1" id="val-soil">--</p>
+                    </div>
+                    <div class="p-3 bg-amber-100 rounded-full text-amber-600">
+                        <i class="fa-solid fa-seedling text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Temperature -->
+            <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-red-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">Temperature</p>
+                        <p class="text-3xl font-bold text-gray-800 mt-1"><span id="val-temp">--</span>°C</p>
+                    </div>
+                    <div class="p-3 bg-red-100 rounded-full text-red-600">
+                        <i class="fa-solid fa-temperature-half text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Light & Rain -->
+            <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">LDR / Rain</p>
+                        <p class="text-xl font-bold text-gray-800 mt-1" id="val-ldr">Light: --</p>
+                        <p class="text-sm font-bold mt-1 text-gray-500" id="val-rain">Rain: --</p>
+                    </div>
+                    <div class="p-3 bg-blue-100 rounded-full text-blue-600">
+                        <i class="fa-solid fa-cloud-rain text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pump State -->
+            <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">Current Status</p>
+                        <p class="text-2xl font-bold text-gray-800 mt-1" id="val-pump">--</p>
+                    </div>
+                    <div class="p-3 bg-green-100 rounded-full text-green-600">
+                        <i class="fa-solid fa-power-off text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Latest Logic Decision Log -->
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-8">
+            <h2 class="text-lg font-bold text-gray-800 mb-4"><i class="fa-solid fa-clock-rotate-left mr-2"></i>Recent Telemetry</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3">Time</th>
+                            <th class="px-4 py-3">Temp / Hum</th>
+                            <th class="px-4 py-3">Soil ADC</th>
+                            <th class="px-4 py-3">Rain Sensor</th>
+                            <th class="px-4 py-3">Pump State</th>
+                        </tr>
+                    </thead>
+                    <tbody id="telemetry-table-body">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const apiToggle = document.getElementById('api-toggle');
+        
+        // Fetch config on load
+        async function loadConfig() {
+            try {
+                const res = await fetch('/api/config');
+                const data = await res.json();
+                apiToggle.checked = data.use_weather_api;
+            } catch(e) {
+                console.error("Failed to load config", e);
+            }
+        }
+
+        // Toggle Config
+        apiToggle.addEventListener('change', async (e) => {
+            const isChecked = e.target.checked;
+            try {
+                await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({use_weather_api: isChecked})
+                });
+            } catch(e) {
+                console.error("Failed to update config", e);
+                e.target.checked = !isChecked; // revert
+            }
+        });
+
+        // Load latest telemetry
+        async function loadTelemetry() {
+            try {
+                const res = await fetch('/api/data');
+                const { data } = await res.json();
+                
+                if (data && data.length > 0) {
+                    const latest = data[0];
+                    document.getElementById('val-soil').innerText = latest.soil_moisture;
+                    document.getElementById('val-temp').innerText = latest.temperature;
+                    document.getElementById('val-ldr').innerText = `Light ADC: ${latest.ldr}`;
+                    
+                    const rainEl = document.getElementById('val-rain');
+                    if (latest.rain_detected) {
+                        rainEl.innerText = "Rain: DETECTED";
+                        rainEl.className = "text-sm font-bold mt-1 text-blue-600";
+                    } else {
+                        rainEl.innerText = "Rain: CLEAR";
+                        rainEl.className = "text-sm font-bold mt-1 text-gray-500";
+                    }
+
+                    const pumpEl = document.getElementById('val-pump');
+                    pumpEl.innerText = latest.pump_state;
+                    if(latest.pump_state.includes("OFF")) {
+                        pumpEl.className = "text-2xl font-bold mt-1 text-gray-500";
+                    } else {
+                        pumpEl.className = "text-2xl font-bold mt-1 text-green-600";
+                    }
+
+                    // Populate table
+                    const tbody = document.getElementById('telemetry-table-body');
+                    tbody.innerHTML = '';
+                    data.slice(0, 10).forEach(row => {
+                        const tr = document.createElement('tr');
+                        tr.className = "border-b hover:bg-gray-50";
+                        tr.innerHTML = `
+                            <td class="px-4 py-3">${new Date(row.timestamp).toLocaleTimeString()}</td>
+                            <td class="px-4 py-3">${row.temperature}°C / ${row.humidity}%</td>
+                            <td class="px-4 py-3">${row.soil_moisture}</td>
+                            <td class="px-4 py-3">${row.rain_detected ? 'Yes' : 'No'}</td>
+                            <td class="px-4 py-3 font-semibold ${row.pump_state.includes('OFF') ? '' : 'text-green-600'}">${row.pump_state}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch(e) {
+                console.error("Failed to fetch telemetry", e);
+            }
+        }
+
+        // Init
+        loadConfig();
+        loadTelemetry();
+        setInterval(loadTelemetry, 5000); // refresh every 5s
+    </script>
+</body>
+</html>
