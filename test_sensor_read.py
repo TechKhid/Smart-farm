@@ -7,11 +7,11 @@ soil_adc    = ADC(Pin(26))       # Analog soil moisture
 ldr_adc     = ADC(Pin(27))       # Analog LDR sensor (Light)
 rain1       = Pin(14, Pin.IN, Pin.PULL_UP)  # Rain sensor 1 (DO)
 relay       = Pin(16, Pin.OUT)
-dht_sensor  = dht.DHT11(Pin(15)) # DHT11 Temp/Humidity sensor
+dht_sensor  = dht.DHT11(Pin(15, Pin.IN, Pin.PULL_UP)) # Explicit pull-up just in case
 
 # --- Config ---
 SOIL_DRY_THRESHOLD = 10000   # ADC value above this = dry (0–65535)
-CHECK_INTERVAL     = 5      # Seconds between checks
+CHECK_INTERVAL     = 1      # Seconds between checks
 RELAY_ACTIVE_LOW   = True    # Set False if your relay triggers on HIGH
 
 def pump_on():
@@ -56,8 +56,7 @@ while True:
         dht_sensor.measure()
         print(f"DHT11 - Temp: {dht_sensor.temperature()}C, Hum: {dht_sensor.humidity()}%")
     except Exception as e:
-        print("Failed to read DHT11 sensor")
-        
+        print(f"Failed to read DHT11 sensor: {e}")
     relay.value(1)
     print("Pump: OFF")
     time.sleep(CHECK_INTERVAL)

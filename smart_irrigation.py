@@ -29,16 +29,34 @@ COOLDOWN_SEC = 300 # 5 minutes cooldown after watering
 global_lat = config.LATITUDE
 global_lon = config.LONGITUDE
 
-# --- WIFI CONNECT ---
 def connect_wifi():
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
+    
+    print("Scanning for available networks...")
+    try:
+        networks = wlan.scan()
+        for net in networks:
+            ssid = net[0].decode('utf-8')
+            rssi = net[3]
+            print(f"  - {ssid} (Signal: {rssi})")
+    except Exception as e:
+        print("Scan failed:", e)
+
     if not wlan.isconnected():
-        print(f"Connecting to network {config.WIFI_SSID}...")
+        print(f"\nConnecting to network '{config.WIFI_SSID}'...")
         wlan.connect(config.WIFI_SSID, config.WIFI_PASSWORD)
-        while not wlan.isconnected():
+        
+        timeout = 20
+        while not wlan.isconnected() and timeout > 0:
             time.sleep(1)
             print(".", end="")
+            timeout -= 1
+            
+        if not wlan.isconnected():
+            print("\nFailed to connect. Will retry later.")
+            return wlan
+            
     print("\nConnected to WiFi!", wlan.ifconfig()[0])
     return wlan
 
@@ -210,7 +228,7 @@ def main():
         except Exception as e:
             print("Main loop encountered error:", e)
             
-        time.sleep(10) # Standard evaluation tick
+        time.sleep(5) # Standard evaluation tick
 
 if __name__ == "__main__":
     main()

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -7,6 +7,16 @@ import uvicorn
 from contextlib import asynccontextmanager
 import datetime
 import os
+import requests
+from dotenv import load_dotenv
+
+# Load env variables from root workspace directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
+
+OWM_API_KEY = os.getenv("OWM_API_KEY", "")
+LATITUDE = os.getenv("LATITUDE", "")
+LONGITUDE = os.getenv("LONGITUDE", "")
 
 # Setup DB
 def init_db():
@@ -24,7 +34,6 @@ def init_db():
     cursor.execute('''CREATE TABLE IF NOT EXISTS config
                       (key TEXT PRIMARY KEY,
                        value TEXT)''')
-    # Default config
     cursor.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('use_weather_api', 'false')")
     conn.commit()
     conn.close()
@@ -35,11 +44,29 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
-
-# Get the absolute path to the templates directory
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except:
+                pass # Handle dead sockets gracefully
+
+manager = ConnectionManager()
 
 class TelemetryData(BaseModel):
     soil_moisture: float
@@ -52,6 +79,17 @@ class TelemetryData(BaseModel):
 class ConfigUpdate(BaseModel):
     use_weather_api: bool
 
+# --- WebSocket Endpoint ---
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # We don't expect messages from the client in this dashboard, so simply hold it open
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
 @app.post("/api/telemetry")
 async def post_telemetry(data: TelemetryData):
     conn = sqlite3.connect("data.db")
@@ -62,18 +100,33 @@ async def post_telemetry(data: TelemetryData):
                       VALUES (?, ?, ?, ?, ?, ?, ?)''', 
                    (timestamp, data.soil_moisture, data.temperature, data.humidity, data.ldr, data.rain_detected, data.pump_state))
     conn.commit()
+    cursor.execute('SELECT id FROM telemetry ORDER BY id DESC LIMIT 1')
+    new_id = cursor.fetchone()[0]
     conn.close()
+    
+    # Broadcast to all open WebSockets
+    payload = {
+        "id": new_id,
+        "timestamp": timestamp,
+        "soil_moisture": data.soil_moisture,
+        "temperature": data.temperature,
+        "humidity": data.humidity,
+        "ldr": data.ldr,
+        "rain_detected": data.rain_detected,
+        "pump_state": data.pump_state
+    }
+    await manager.broadcast(payload)
     return {"status": "success"}
 
 @app.get("/api/data")
 async def get_data():
     conn = sqlite3.connect("data.db")
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM telemetry ORDER BY id DESC LIMIT 20')
+    # Give back the last 30 for the initial chart load
+    cursor.execute('SELECT * FROM telemetry ORDER BY id DESC LIMIT 30')
     rows = cursor.fetchall()
     conn.close()
     
-    # Format for JSON response
     result = []
     for row in rows:
         result.append({
@@ -95,8 +148,7 @@ async def get_config():
     cursor.execute('SELECT value FROM config WHERE key = "use_weather_api"')
     row = cursor.fetchone()
     conn.close()
-    use_weather_api = row[0] == 'true' if row else False
-    return {"use_weather_api": use_weather_api}
+    return {"use_weather_api": row[0] == 'true' if row else False}
 
 @app.post("/api/config")
 async def update_config(config: ConfigUpdate):
@@ -107,6 +159,18 @@ async def update_config(config: ConfigUpdate):
     conn.commit()
     conn.close()
     return {"status": "success", "use_weather_api": config.use_weather_api}
+
+@app.get("/api/weather")
+async def get_weather():
+    if not OWM_API_KEY or not LATITUDE or not LONGITUDE:
+        return {"error": "Missing config"}
+        
+    url = f"https://api.openweathermap.org/data/2.5/weather?lat={LATITUDE}&lon={LONGITUDE}&appid={OWM_API_KEY}&units=metric"
+    try:
+        res = requests.get(url, timeout=5)
+        return res.json()
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):

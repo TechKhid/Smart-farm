@@ -2,3 +2,6 @@ fastapi
 uvicorn
 jinja2
 pydantic
+websockets
+requests
+python-dotenv
