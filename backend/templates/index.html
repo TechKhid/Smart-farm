@@ -6,167 +6,241 @@
     <title>Farm Eyes Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: {
-                        glass: 'rgba(255, 255, 255, 0.85)',
-                        'glass-border': 'rgba(255, 255, 255, 0.4)'
-                    }
                 }
             }
         }
     </script>
     
     <style>
-        body { background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%); min-height: 100vh; }
+        body { background: #0a0d12; min-height: 100vh; color: #e2e8f0; }
         
         .glass-card {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-            border-radius: 1.5rem;
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s ease;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            border-radius: 1.25rem;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
         }
-        .glass-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        .glass-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+            border-color: rgba(255, 255, 255, 0.14);
+        }
+
+        /* Humidity droplet fill — fills from bottom up */
+        .droplet-shell { position: relative; width: 3.5rem; height: 3.5rem; }
+        .droplet-shell svg { position: absolute; inset: 0; }
+        .droplet-clip { overflow: hidden; position: absolute; inset: 0; }
+        .droplet-fill {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+            transition: height 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+            height: 10%;
+        }
 
         @keyframes slowSpin { 100% { transform: rotate(360deg); } }
-        .sun-rays { transform-origin: 50% 50%; transition: animation-duration 1s ease; }
+        .sun-rays { transform-origin: 50% 50%; }
         .sun-core { transition: fill 0.5s ease; }
-        .water-wave { transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); transform-origin: bottom; }
-        
-        @keyframes rainFall { 0% { transform: translateY(-5px); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateY(15px); opacity: 0; } }
+
+        @keyframes rainFall {
+            0%   { transform: translateY(-5px); opacity: 0; }
+            20%  { opacity: 1; }
+            80%  { opacity: 1; }
+            100% { transform: translateY(15px); opacity: 0; }
+        }
         .raindrop { opacity: 0; }
         .is-raining .raindrop { animation: rainFall 0.8s linear infinite; }
         .is-raining .raindrop:nth-child(2) { animation-delay: 0.25s; }
         .is-raining .raindrop:nth-child(3) { animation-delay: 0.5s; }
         .cloud-base { transition: fill 0.5s ease; }
-        
-        @keyframes ripple { 0% { transform: scale(0.8); opacity: 0.6; } 100% { transform: scale(1.6); opacity: 0; } }
+
+        @keyframes ripple {
+            0%   { transform: scale(0.8); opacity: 0.7; }
+            100% { transform: scale(1.7); opacity: 0; }
+        }
         .pump-ring { opacity: 0; transform-origin: center; }
         .is-pumping .pump-ring { animation: ripple 1.5s ease-out infinite; }
         .pump-fan { transform-origin: center; transition: all 0.5s ease; }
         .is-pumping .pump-fan { animation: slowSpin 0.4s linear infinite; fill: #10b981; }
 
+        /* Toggle */
         .nav-toggle-switch { transition: background-color 0.3s ease; }
         .nav-toggle-dot { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        
-        /* Websocket status pulse */
-        @keyframes wPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        /* WebSocket status */
+        @keyframes wPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         .ws-connected { animation: wPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+        /* Chart overrides for dark mode */
+        #telemetryChart { filter: brightness(0.9); }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+
+        /* Label colors in dark */
+        .label-dim { color: rgba(255,255,255,0.35); font-size: 0.65rem; letter-spacing: 0.12em; font-weight: 700; text-transform: uppercase; }
+        .val-primary { color: #f1f5f9; }
+        .val-unit { color: rgba(255,255,255,0.3); }
     </style>
 </head>
-<body class="text-gray-800 antialiased p-4 md:p-8">
+<body class="antialiased p-4 md:p-6">
 
-    <div class="max-w-7xl mx-auto space-y-6">
+    <div class="max-w-7xl mx-auto space-y-5">
+
         <!-- Header -->
-        <header class="glass-card p-5 flex flex-col xl:flex-row justify-between items-center z-10 relative">
-            <div class="flex items-center space-x-3 mb-4 xl:mb-0 w-full xl:w-auto justify-center xl:justify-start">
-                <div class="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-200">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+        <header class="glass-card p-4 flex flex-col xl:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <!-- Plant logo — flat, no gradient -->
+                <div class="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                    <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2C15 6 15.17 8 17 8z"/>
+                    </svg>
                 </div>
                 <div>
                     <div class="flex items-center space-x-2">
-                        <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-teal-800">Farm Eyes</h1>
-                        <div id="ws-indicator" class="w-2 h-2 rounded-full bg-red-500" title="WebSocket Disconnected"></div>
+                        <h1 class="text-xl font-bold text-slate-100">Farm Eyes</h1>
+                        <div id="ws-indicator" class="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="WebSocket Disconnected"></div>
                     </div>
-                    <p class="text-xs text-gray-500 font-medium tracking-wide uppercase">Real-Time Streaming Active</p>
+                    <p class="label-dim mt-0.5">Real-Time Streaming Active</p>
                 </div>
             </div>
-            
-            <div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
+
+            <div class="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
                 <!-- Weather Widget -->
-                <div id="owm-widget" class="flex items-center space-x-3 bg-white/60 p-2 rounded-2xl shadow-sm border border-white/80 hidden">
-                    <img id="owm-icon" src="" alt="Weather" class="w-12 h-12 drop-shadow-md">
-                    <div class="flex flex-col border-r border-gray-300/50 pr-4">
-                        <span id="owm-temp" class="text-2xl font-black text-gray-800 drop-shadow-sm leading-none">--°C</span>
-                        <span id="owm-desc" class="text-xs font-bold text-gray-500 uppercase mt-1">--</span>
+                <div id="owm-widget" class="hidden flex items-center space-x-3 bg-white/5 border border-white/10 p-2 px-4 rounded-2xl">
+                    <img id="owm-icon" src="" alt="Weather" class="w-10 h-10 drop-shadow">
+                    <div class="flex flex-col border-r border-white/10 pr-4">
+                        <span id="owm-temp" class="text-xl font-black text-slate-100 leading-none">--°C</span>
+                        <span id="owm-desc" class="label-dim mt-1">--</span>
                     </div>
-                    <div class="pl-2 pr-2">
-                        <span id="owm-loc" class="text-sm font-bold text-sky-700">--</span>
-                    </div>
+                    <span id="owm-loc" class="text-sm font-bold text-sky-400 pl-2">--</span>
                 </div>
 
                 <!-- API Override Toggle -->
-                <div class="flex items-center space-x-4 bg-white/50 py-2 px-4 rounded-full border border-white/60 shadow-sm">
-                    <span class="text-gray-600 font-semibold text-sm">Weather verification Override</span>
+                <div class="flex items-center space-x-3 bg-white/5 border border-white/10 py-2 px-4 rounded-full">
+                    <span class="text-slate-400 font-semibold text-sm">Weather Verification</span>
                     <label class="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" id="api-toggle" class="sr-only peer">
-                      <div class="w-12 h-6 bg-gray-300 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-indigo-500 nav-toggle-switch shadow-inner"></div>
-                      <div class="absolute left-1 top-1 bg-white w-4 h-4 rounded-full shadow-md nav-toggle-dot peer-checked:translate-x-6"></div>
+                        <input type="checkbox" id="api-toggle" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-emerald-600 nav-toggle-switch shadow-inner"></div>
+                        <div class="absolute left-1 top-1 bg-white w-4 h-4 rounded-full shadow nav-toggle-dot peer-checked:translate-x-5"></div>
                     </label>
                 </div>
             </div>
         </header>
 
         <!-- KPI Grid -->
-        <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 lg:gap-6">
-            <!-- Temperature -->
+        <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">
+
+            <!-- Temperature with mercury fill -->
             <div class="glass-card p-5 flex flex-col items-center justify-center text-center">
-                <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Temperature</p>
-                <div class="relative w-16 h-16 mb-2 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" class="w-10 h-10 text-rose-500" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path></svg>
+                <p class="label-dim mb-3">Temperature</p>
+                <div class="w-14 h-14 mb-3 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" class="w-10 h-10" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5">
+                        <!-- Tube outline -->
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+                        <defs>
+                            <clipPath id="thermClip">
+                                <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+                            </clipPath>
+                        </defs>
+                        <!-- Mercury fill grows from bottom -->
+                        <rect id="therm-fill" x="0" y="24" width="24" height="0"
+                              fill="#f43f5e" clip-path="url(#thermClip)"
+                              style="transition: y 1.2s cubic-bezier(0.4,0,0.2,1), height 1.2s cubic-bezier(0.4,0,0.2,1);"/>
+                    </svg>
                 </div>
                 <div class="flex items-baseline space-x-1">
-                    <span class="text-3xl font-black text-gray-800" id="val-temp">--</span>
-                    <span class="text-lg font-bold text-gray-400">°C</span>
+                    <span class="text-3xl font-black val-primary" id="val-temp">--</span>
+                    <span class="text-base font-bold val-unit">°C</span>
                 </div>
             </div>
 
             <!-- Humidity -->
             <div class="glass-card p-5 flex flex-col items-center justify-center text-center">
-                <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Humidity</p>
-                <div class="relative w-16 h-16 mb-2 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" class="w-12 h-12 text-blue-100" fill="currentColor"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
-                    <div class="absolute bottom-2 w-12 h-12 flex items-end justify-center overflow-hidden" style="clip-path: path('M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z');">
-                        <svg viewBox="0 0 24 24" class="w-12 h-12 text-blue-500 water-wave" id="humid-fill" fill="currentColor" style="transform: scaleY(0.1)"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
-                    </div>
+                <p class="label-dim mb-3">Humidity</p>
+                <!-- Droplet: outline shell + clipped fill div -->
+                <div class="relative w-14 h-14 mb-3 flex items-center justify-center">
+                    <!-- Outline shell -->
+                    <svg viewBox="0 0 100 120" class="absolute inset-0 w-full h-full" fill="none">
+                        <path d="M50 10 L90 65 A40 40 0 1 1 10 65 Z" stroke="rgba(255,255,255,0.12)" stroke-width="4" fill="none"/>
+                    </svg>
+                    <!-- Clipped fill -->
+                    <svg viewBox="0 0 100 120" class="absolute inset-0 w-full h-full" id="humid-svg">
+                        <defs>
+                            <clipPath id="dropletClip">
+                                <path d="M50 10 L90 65 A40 40 0 1 1 10 65 Z"/>
+                            </clipPath>
+                        </defs>
+                        <!-- Full fill rect, clipped to droplet shape, grows upward from bottom -->
+                        <rect id="humid-fill-rect" x="0" y="120" width="100" height="0"
+                              fill="url(#humGrad)"
+                              clip-path="url(#dropletClip)"
+                              style="transition: y 1.5s cubic-bezier(0.4,0,0.2,1), height 1.5s cubic-bezier(0.4,0,0.2,1)"/>
+                        <defs>
+                            <linearGradient id="humGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="#60a5fa"/>
+                                <stop offset="100%" stop-color="#1d4ed8"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
                 </div>
                 <div class="flex items-baseline space-x-1">
-                    <span class="text-3xl font-black text-gray-800" id="val-hum">--</span>
-                    <span class="text-lg font-bold text-gray-400">%</span>
+                    <span class="text-3xl font-black val-primary" id="val-hum">--</span>
+                    <span class="text-base font-bold val-unit">%</span>
                 </div>
             </div>
 
             <!-- Light Intensity -->
             <div class="glass-card p-5 flex flex-col items-center justify-center text-center">
-                <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Light Intensity</p>
-                <div class="relative w-16 h-16 mb-2 flex items-center justify-center">
+                <p class="label-dim mb-3">Light Intensity</p>
+                <div class="relative w-14 h-14 mb-3 flex items-center justify-center">
                     <svg viewBox="0 0 100 100" class="w-14 h-14" id="sun-svg">
-                        <g class="sun-rays text-amber-400" id="sun-rays" fill="currentColor">
-                            <polygon points="50,5 53,15 47,15" /> <polygon points="50,95 53,85 47,85" />
-                            <polygon points="5,50 15,47 15,53" /> <polygon points="95,50 85,47 85,53" />
-                            <polygon points="18,18 25,25 21,28" /> <polygon points="82,82 75,75 79,72" />
-                            <polygon points="82,18 75,25 72,21" /> <polygon points="18,82 25,75 28,79" />
+                        <g id="sun-rays" fill="#f59e0b">
+                            <polygon points="50,5 53,15 47,15"/>
+                            <polygon points="50,95 53,85 47,85"/>
+                            <polygon points="5,50 15,47 15,53"/>
+                            <polygon points="95,50 85,47 85,53"/>
+                            <polygon points="18,18 25,25 21,28"/>
+                            <polygon points="82,82 75,75 79,72"/>
+                            <polygon points="82,18 75,25 72,21"/>
+                            <polygon points="18,82 25,75 28,79"/>
                         </g>
-                        <circle cx="50" cy="50" r="20" class="sun-core text-amber-500" id="sun-core" fill="currentColor"/>
+                        <circle cx="50" cy="50" r="20" fill="#f59e0b" id="sun-core"/>
                     </svg>
                 </div>
-                <div class="flex flex-col items-center justify-center w-full">
+                <div class="flex flex-col items-center">
                     <div class="flex items-baseline space-x-1">
-                        <span class="text-3xl font-black text-gray-800" id="val-ldr">--</span>
-                        <span class="text-lg font-bold text-gray-400">%</span>
+                        <span class="text-3xl font-black val-primary" id="val-ldr">--</span>
+                        <span class="text-base font-bold val-unit">%</span>
                     </div>
                     <span class="text-xs font-bold mt-1 uppercase" id="val-ldr-desc"></span>
                 </div>
             </div>
 
             <!-- Soil Moisture -->
-            <div class="glass-card p-5 flex flex-col items-center justify-center text-center lg:col-span-1">
-                <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Soil Moisture</p>
-                <div class="relative w-16 h-16 mb-2 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" class="w-10 h-10 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S12 3 12 3s-4.5 4.03-4.5 9 2.015 9 4.5 9z"></path></svg>
+            <div class="glass-card p-5 flex flex-col items-center justify-center text-center">
+                <p class="label-dim mb-3">Soil Moisture</p>
+                <div class="w-14 h-14 mb-3 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" class="w-10 h-10 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S12 3 12 3s-4.5 4.03-4.5 9 2.015 9 4.5 9z"/>
+                    </svg>
                 </div>
-                <div class="flex flex-col items-center justify-center w-full">
+                <div class="flex flex-col items-center">
                     <div class="flex items-baseline space-x-1">
-                        <span class="text-3xl font-black text-gray-800" id="val-soil">--</span>
-                        <span class="text-lg font-bold text-gray-400">%</span>
+                        <span class="text-3xl font-black val-primary" id="val-soil">--</span>
+                        <span class="text-base font-bold val-unit">%</span>
                     </div>
                     <span class="text-xs font-bold mt-1 uppercase" id="val-soil-desc"></span>
                 </div>
@@ -174,49 +248,54 @@
 
             <!-- Rain Sensor -->
             <div class="glass-card p-5 flex flex-col items-center justify-center text-center" id="rain-card">
-                <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Rain Sensor</p>
-                <div class="relative w-16 h-16 mb-2 flex items-center justify-center" id="rain-container">
-                    <svg viewBox="0 0 24 24" class="w-12 h-12 text-gray-400 cloud-base" id="cloud-svg" fill="currentColor"><path d="M17.5 19c2.48 0 4.5-2.02 4.5-4.5 0-2.31-1.74-4.24-3.98-4.47A7.009 7.009 0 0 0 4.3 11.23 3.5 3.5 0 0 0 2.5 18c0 .24.03.48.09.71H17.5z"></path></svg>
+                <p class="label-dim mb-3">Rain Sensor</p>
+                <div class="relative w-14 h-14 mb-3 flex items-center justify-center" id="rain-container">
+                    <svg viewBox="0 0 24 24" class="w-12 h-12 cloud-base" id="cloud-svg" fill="rgba(255,255,255,0.25)">
+                        <path d="M17.5 19c2.48 0 4.5-2.02 4.5-4.5 0-2.31-1.74-4.24-3.98-4.47A7.009 7.009 0 0 0 4.3 11.23 3.5 3.5 0 0 0 2.5 18c0 .24.03.48.09.71H17.5z"/>
+                    </svg>
                     <div class="absolute top-10 left-0 w-full flex justify-center space-x-1">
-                        <div class="w-1 h-3 bg-blue-500 rounded-full raindrop"></div>
-                        <div class="w-1 h-3 bg-blue-500 rounded-full raindrop mt-1"></div>
-                        <div class="w-1 h-3 bg-blue-500 rounded-full raindrop"></div>
+                        <div class="w-1 h-3 bg-blue-400 rounded-full raindrop"></div>
+                        <div class="w-1 h-3 bg-blue-400 rounded-full raindrop mt-1"></div>
+                        <div class="w-1 h-3 bg-blue-400 rounded-full raindrop"></div>
                     </div>
                 </div>
-                <span class="text-lg font-bold text-gray-500" id="val-rain">--</span>
+                <span class="text-base font-bold text-slate-400 uppercase tracking-wider" id="val-rain">--</span>
             </div>
 
             <!-- Pump Status -->
             <div class="glass-card p-5 flex flex-col items-center justify-center text-center" id="pump-card">
-                <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Water Pump</p>
-                <div class="relative w-16 h-16 mb-2 flex items-center justify-center" id="pump-container">
+                <p class="label-dim mb-3">Water Pump</p>
+                <div class="relative w-14 h-14 mb-3 flex items-center justify-center" id="pump-container">
                     <div class="absolute inset-0 border-4 border-emerald-400 rounded-full pump-ring"></div>
-                    <div class="w-12 h-12 bg-gray-100 rounded-full p-2 flex items-center justify-center z-10 shadow-sm border border-gray-200">
-                        <svg viewBox="0 0 24 24" class="w-8 h-8 text-gray-400 pump-fan" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/><path d="M12.5 7v4.5l3.9 2.3-.8 1.2-4.6-2.8V7z"/></svg>
+                    <div class="w-12 h-12 bg-white/5 rounded-full p-2 flex items-center justify-center z-10 border border-white/10">
+                        <svg viewBox="0 0 24 24" class="w-8 h-8 pump-fan" fill="rgba(255,255,255,0.3)">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                            <path d="M12.5 7v4.5l3.9 2.3-.8 1.2-4.6-2.8V7z"/>
+                        </svg>
                     </div>
                 </div>
-                <span class="text-lg font-bold text-gray-500 uppercase tracking-widest" id="val-pump">--</span>
+                <span class="text-base font-bold uppercase tracking-widest text-slate-400" id="val-pump">--</span>
             </div>
         </div>
 
-        <!-- Lower Section: Chart and Logs -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Chart Container -->
+        <!-- Lower Section: Chart + Logs -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <!-- Chart -->
             <div class="glass-card p-6 col-span-1 lg:col-span-2 flex flex-col">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-chart-area mr-2"></i>Trend Analysis</h2>
+                    <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest">Trend Analysis</h2>
                 </div>
                 <div class="flex-grow relative h-64 w-full">
                     <canvas id="telemetryChart"></canvas>
                 </div>
             </div>
 
-            <!-- Table Logs -->
+            <!-- Stream Log -->
             <div class="glass-card p-6 col-span-1 flex flex-col">
-                <h2 class="text-lg font-bold text-gray-800 mb-4"><i class="fa-solid fa-list mr-2"></i>Stream Log</h2>
-                <div class="overflow-y-auto flex-grow max-h-64 pr-2 custom-scrollbar">
-                    <div class="space-y-3" id="telemetry-log">
-                        <p class="text-sm text-gray-400 text-center py-4">Waiting for WebSockets...</p>
+                <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest mb-4">Stream Log</h2>
+                <div class="overflow-y-auto flex-grow max-h-64 pr-1">
+                    <div class="space-y-2" id="telemetry-log">
+                        <p class="text-sm text-slate-600 text-center py-4">Waiting for WebSockets...</p>
                     </div>
                 </div>
             </div>
@@ -228,63 +307,217 @@
         let chartInstance = null;
         let ws;
 
+        /* ── Tween number ── */
         function tweenValue(id, newValue) {
             const el = document.getElementById(id);
             const current = parseFloat(el.innerText) || 0;
             const target = parseFloat(newValue) || 0;
-            if(isNaN(target)) { el.innerText = newValue; return; }
-            if(current === target) return;
+            if (isNaN(target)) { el.innerText = newValue; return; }
+            if (current === target) return;
             const diff = target - current;
             const steps = 20;
             let step = 0;
             const interval = setInterval(() => {
                 step++;
-                el.innerText = Math.round(current + (diff * (step/steps)));
-                if(step >= steps) { el.innerText = target; clearInterval(interval); }
+                el.innerText = Math.round(current + diff * (step / steps));
+                if (step >= steps) { el.innerText = target; clearInterval(interval); }
             }, 20);
         }
 
-        function updateValues(latest) {
-            // Conversions mapping ADC approximations to Intuitive 0-100% Percentages
-            const ldrPercent = Math.max(0, Math.min(100, Math.round(latest.ldr / 36000 * 100)));
-            const soilPercent = Math.max(0, Math.min(100, Math.round(100 - ((latest.soil_moisture - 20000) / (65535 - 20000) * 100))));
-            
-            tweenValue('val-temp', latest.temperature);
-            tweenValue('val-hum', latest.humidity);
-            tweenValue('val-soil', soilPercent);
-            tweenValue('val-ldr', ldrPercent);
-
-            const soilDescEl = document.getElementById('val-soil-desc');
-            if (soilPercent < 30) { soilDescEl.innerText = "DRY"; soilDescEl.className = "text-xs font-bold text-rose-500 mt-1 uppercase"; }
-            else if (soilPercent < 70) { soilDescEl.innerText = "ADEQUATE"; soilDescEl.className = "text-xs font-bold text-emerald-500 mt-1 uppercase"; }
-            else { soilDescEl.innerText = "SATURATED"; soilDescEl.className = "text-xs font-bold text-blue-500 mt-1 uppercase"; }
-
-            const ldrDescEl = document.getElementById('val-ldr-desc');
-            if (ldrPercent < 20) { ldrDescEl.innerText = "DARK"; ldrDescEl.className = "text-xs font-bold text-gray-600 mt-1 uppercase"; }
-            else if (ldrPercent < 65) { ldrDescEl.innerText = "SHADED"; ldrDescEl.className = "text-xs font-bold text-yellow-600 mt-1 uppercase"; }
-            else { ldrDescEl.innerText = "BRIGHT SUN"; ldrDescEl.className = "text-xs font-bold text-amber-500 mt-1 uppercase"; }
+        /* ── Update humidity droplet fill — grows from BOTTOM ── */
+        function updateHumidFill(pct) {
+            // pct 0-100. Fill rect: viewBox height=120, droplet path bottom ~105
+            const fillHeight = Math.max(2, (pct / 100) * 105);
+            const yPos = 120 - fillHeight;
+            const rect = document.getElementById('humid-fill-rect');
+            rect.setAttribute('y', yPos);
+            rect.setAttribute('height', fillHeight);
         }
 
+        /* ── Update KPI values ── */
+        function updateValues(latest) {
+            const ldrPercent  = Math.max(0, Math.min(100, Math.round(latest.ldr / 36000 * 100)));
+            const soilPercent = Math.max(0, Math.min(100, Math.round(100 - ((latest.soil_moisture - 20000) / (65535 - 20000) * 100))));
+
+            tweenValue('val-temp', latest.temperature);
+            tweenValue('val-hum',  latest.humidity);
+            tweenValue('val-soil', soilPercent);
+            tweenValue('val-ldr',  ldrPercent);
+            updateHumidFill(latest.humidity);
+
+            const soilDescEl = document.getElementById('val-soil-desc');
+            if (soilPercent < 30) {
+                soilDescEl.innerText = 'DRY';
+                soilDescEl.className = 'text-xs font-bold text-rose-400 mt-1 uppercase';
+            } else if (soilPercent < 70) {
+                soilDescEl.innerText = 'ADEQUATE';
+                soilDescEl.className = 'text-xs font-bold text-emerald-400 mt-1 uppercase';
+            } else {
+                soilDescEl.innerText = 'SATURATED';
+                soilDescEl.className = 'text-xs font-bold text-blue-400 mt-1 uppercase';
+            }
+
+            const ldrDescEl = document.getElementById('val-ldr-desc');
+            if (ldrPercent < 20) {
+                ldrDescEl.innerText = 'DARK';
+                ldrDescEl.className = 'text-xs font-bold text-slate-500 mt-1 uppercase';
+            } else if (ldrPercent < 65) {
+                ldrDescEl.innerText = 'SHADED';
+                ldrDescEl.className = 'text-xs font-bold text-yellow-500 mt-1 uppercase';
+            } else {
+                ldrDescEl.innerText = 'BRIGHT SUN';
+                ldrDescEl.className = 'text-xs font-bold text-amber-400 mt-1 uppercase';
+            }
+        }
+
+        /* ── SVG animations ── */
+        function updateSVGs(latest) {
+            // --- Thermometer fill (0°C = empty, 50°C = full) ---
+            const thermEl = document.getElementById('therm-fill');
+            const tempClamped = Math.max(0, Math.min(50, latest.temperature));
+            const fillFraction = tempClamped / 50;           // 0.0 – 1.0
+            const maxFillH = 20;                             // viewBox height to fill
+            const fillH = fillFraction * maxFillH;
+            thermEl.setAttribute('y', 24 - fillH);
+            thermEl.setAttribute('height', fillH);
+            // Colour: cool blue → warm amber → hot rose
+            if (tempClamped < 20)      thermEl.setAttribute('fill', '#38bdf8');
+            else if (tempClamped < 35) thermEl.setAttribute('fill', '#fb923c');
+            else                       thermEl.setAttribute('fill', '#f43f5e');
+
+            // --- Sun rays: HIGH ldr ADC = bright ---
+            const sunRays = document.getElementById('sun-rays');
+            const sunCore = document.getElementById('sun-core');
+            if (latest.ldr > 25000) {
+                sunRays.style.animation = 'slowSpin 3s linear infinite';
+                sunRays.setAttribute('fill', '#fde68a');
+                sunCore.setAttribute('fill', '#fbbf24');
+            } else if (latest.ldr > 8000) {
+                sunRays.style.animation = 'slowSpin 10s linear infinite';
+                sunRays.setAttribute('fill', '#f59e0b');
+                sunCore.setAttribute('fill', '#d97706');
+            } else {
+                sunRays.style.animation = 'none';
+                sunRays.setAttribute('fill', 'rgba(255,255,255,0.12)');
+                sunCore.setAttribute('fill', 'rgba(255,255,255,0.08)');
+            }
+
+            const rainContainer = document.getElementById('rain-container');
+            const rainVal = document.getElementById('val-rain');
+            const cloudSvg  = document.getElementById('cloud-svg');
+            if (latest.rain_detected) {
+                rainContainer.classList.add('is-raining');
+                cloudSvg.setAttribute('fill', '#64748b');
+                rainVal.innerText = 'RAINING';
+                rainVal.className = 'text-base font-bold text-blue-400 uppercase tracking-wider';
+            } else {
+                rainContainer.classList.remove('is-raining');
+                cloudSvg.setAttribute('fill', 'rgba(255,255,255,0.2)');
+                rainVal.innerText = 'CLEAR';
+                rainVal.className = 'text-base font-bold text-slate-400 uppercase tracking-wider';
+            }
+
+            const pumpContainer = document.getElementById('pump-container');
+            const pumpVal = document.getElementById('val-pump');
+            const pumpFan = pumpContainer.querySelector('.pump-fan');
+            pumpVal.innerText = latest.pump_state.split(' ')[0];
+            if (latest.pump_state.includes('OFF')) {
+                pumpContainer.classList.remove('is-pumping');
+                pumpVal.className = 'text-base font-bold uppercase tracking-widest text-slate-500';
+                pumpFan.setAttribute('fill', 'rgba(255,255,255,0.2)');
+            } else {
+                pumpContainer.classList.add('is-pumping');
+                pumpVal.className = 'text-base font-black uppercase tracking-widest text-emerald-400';
+                pumpFan.setAttribute('fill', '#10b981');
+            }
+        }
+
+        /* ── Append Log Entry ── */
+        function prependLogEntry(row) {
+            const logContainer = document.getElementById('telemetry-log');
+            if (logContainer.innerHTML.includes('Waiting')) logContainer.innerHTML = '';
+
+            const timeStr  = new Date(row.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const isPumpOn = !row.pump_state.includes('OFF');
+
+            const entry = document.createElement('div');
+            entry.className = 'flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/8 mb-2';
+            entry.innerHTML = `
+                <div class="flex flex-col">
+                    <span class="text-xs text-slate-500 font-semibold mb-1">${timeStr}</span>
+                    <span class="text-sm font-medium text-slate-300">Soil: ${row.soil_moisture} | ${row.temperature}°C</span>
+                </div>
+                <div>
+                    <span class="px-2 py-1 text-xs font-bold rounded-full ${isPumpOn ? 'bg-emerald-900/60 text-emerald-300' : 'bg-white/5 text-slate-400'}">
+                        ${row.pump_state}
+                    </span>
+                </div>
+            `;
+            logContainer.prepend(entry);
+            if (logContainer.children.length > 15) logContainer.lastChild.remove();
+        }
+
+        /* ── Chart ── */
+        function initChart(data) {
+            const ctx = document.getElementById('telemetryChart').getContext('2d');
+            const rev = [...data].reverse();
+            const labels   = rev.map(d => new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+            const soilData = rev.map(d => d.soil_moisture);
+            const tempData = rev.map(d => d.temperature);
+
+            Chart.defaults.color = 'rgba(255,255,255,0.4)';
+            Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Soil Moisture (ADC)', data: soilData, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)', tension: 0.4, yAxisID: 'y' },
+                        { label: 'Temperature (°C)',    data: tempData, borderColor: '#f43f5e', backgroundColor: 'rgba(244,63,94,0.08)',  tension: 0.4, yAxisID: 'y1' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: 'rgba(255,255,255,0.5)', usePointStyle: true, boxWidth: 8, font: { size: 11 } }
+                        }
+                    },
+                    scales: {
+                        x:  { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.25)', maxRotation: 45, font: { size: 10 } } },
+                        y:  { type: 'linear', display: true, position: 'left',  title: { display: true, text: 'ADC (Higher = Drier)', color: 'rgba(255,255,255,0.3)' }, ticks: { color: 'rgba(255,255,255,0.3)' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: '°C', color: 'rgba(255,255,255,0.3)' }, ticks: { color: 'rgba(255,255,255,0.3)' }, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+        }
+
+        /* ── Weather Widget ── */
         async function loadWeatherWidget() {
             try {
-                const res = await fetch('/api/weather');
+                const res  = await fetch('/api/weather');
                 const data = await res.json();
-                if(data && !data.error) {
+                if (data && !data.error) {
                     document.getElementById('owm-widget').classList.remove('hidden');
                     document.getElementById('owm-temp').innerText = Math.round(data.main.temp) + '°C';
                     document.getElementById('owm-desc').innerText = data.weather[0].description;
-                    document.getElementById('owm-loc').innerText = data.name + ', ' + data.sys.country;
+                    document.getElementById('owm-loc').innerText  = data.name + ', ' + data.sys.country;
                     document.getElementById('owm-icon').src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
                 }
-            } catch(e) { console.error("Weather widget error", e); }
+            } catch (e) { console.error('Weather error', e); }
         }
 
+        /* ── Config ── */
         async function initConfig() {
             try {
-                const res = await fetch('/api/config');
+                const res  = await fetch('/api/config');
                 const data = await res.json();
                 apiToggle.checked = data.use_weather_api;
-            } catch(e) { console.error("Config log error", e); }
+            } catch (e) { console.error('Config error', e); }
         }
 
         apiToggle.addEventListener('change', async (e) => {
@@ -292,115 +525,13 @@
             try {
                 await fetch('/api/config', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({use_weather_api: isChecked})
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ use_weather_api: isChecked })
                 });
-            } catch(e) { e.target.checked = !isChecked; }
+            } catch (e) { e.target.checked = !isChecked; }
         });
 
-        function updateSVGs(latest) {
-            const humFill = document.getElementById('humid-fill');
-            humFill.style.transform = `scaleY(${Math.max(0.1, latest.humidity / 100)})`;
-
-            const sunRays = document.getElementById('sun-rays');
-            const sunCore = document.getElementById('sun-core');
-            if (latest.ldr < 1000) {
-                sunRays.style.animation = "slowSpin 3s linear infinite"; 
-                sunCore.classList.replace('text-amber-500', 'text-yellow-400') || sunCore.classList.replace('text-gray-500', 'text-yellow-400');
-                sunRays.classList.replace('text-amber-400', 'text-yellow-300') || sunRays.classList.replace('text-gray-400', 'text-yellow-300');
-            } else if (latest.ldr < 10000) {
-                sunRays.style.animation = "slowSpin 10s linear infinite"; 
-                sunCore.classList.replace('text-yellow-400', 'text-amber-500') || sunCore.classList.replace('text-gray-500', 'text-amber-500');
-                sunRays.classList.replace('text-yellow-300', 'text-amber-400') || sunRays.classList.replace('text-gray-400', 'text-amber-400');
-            } else {
-                sunRays.style.animation = "none"; 
-                sunCore.classList.replace('text-yellow-400', 'text-gray-500') || sunCore.classList.replace('text-amber-500', 'text-gray-500');
-                sunRays.classList.replace('text-yellow-300', 'text-gray-400') || sunRays.classList.replace('text-amber-400', 'text-gray-400');
-            }
-
-            const rainContainer = document.getElementById('rain-container');
-            const rainVal = document.getElementById('val-rain');
-            const cloudSvg = document.getElementById('cloud-svg');
-            if (latest.rain_detected) {
-                rainContainer.classList.add('is-raining');
-                cloudSvg.classList.replace('text-gray-400', 'text-slate-600');
-                rainVal.innerText = "RAINING";
-                rainVal.className = "text-lg font-bold text-blue-600";
-            } else {
-                rainContainer.classList.remove('is-raining');
-                cloudSvg.classList.replace('text-slate-600', 'text-gray-400');
-                rainVal.innerText = "CLEAR";
-                rainVal.className = "text-lg font-bold text-gray-500";
-            }
-
-            const pumpContainer = document.getElementById('pump-container');
-            const pumpVal = document.getElementById('val-pump');
-            pumpVal.innerText = latest.pump_state.split(' ')[0]; // Show just ON/OFF
-            if(latest.pump_state.includes("OFF")) {
-                pumpContainer.classList.remove('is-pumping');
-                pumpVal.className = "text-lg font-bold mt-1 text-gray-500";
-            } else {
-                pumpContainer.classList.add('is-pumping');
-                pumpVal.className = "text-lg font-black mt-1 text-emerald-600";
-            }
-        }
-
-        function prependLogEntry(row) {
-            const logContainer = document.getElementById('telemetry-log');
-            if(logContainer.innerHTML.includes("Waiting")) logContainer.innerHTML = '';
-            
-            const timeStr = new Date(row.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-            const isPumpOn = !row.pump_state.includes('OFF');
-            
-            const entry = document.createElement('div');
-            entry.className = "flex items-center justify-between p-3 bg-white/50 rounded-lg border border-gray-100 mb-2 shadow-sm animate-pulse";
-            entry.innerHTML = `
-                <div class="flex flex-col">
-                    <span class="text-xs text-gray-400 font-semibold mb-1">${timeStr}</span>
-                    <span class="text-sm font-medium text-gray-700">Soil: ${row.soil_moisture} | ${row.temperature}°C</span>
-                </div>
-                <div>
-                    <span class="px-2 py-1 text-xs font-bold rounded-full ${isPumpOn ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}">
-                        ${row.pump_state}
-                    </span>
-                </div>
-            `;
-            
-            logContainer.prepend(entry);
-            // remove pulse after entry
-            setTimeout(() => entry.classList.remove("animate-pulse"), 500);
-            
-            if (logContainer.children.length > 15) logContainer.lastChild.remove();
-        }
-
-        function initChart(data) {
-            const ctx = document.getElementById('telemetryChart').getContext('2d');
-            const reversedData = [...data].reverse();
-            const labels = reversedData.map(d => new Date(d.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}));
-            const soilData = reversedData.map(d => d.soil_moisture);
-            const tempData = reversedData.map(d => d.temperature);
-
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Soil Moisture (ADC)', data: soilData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, yAxisID: 'y' },
-                        { label: 'Temperature (°C)', data: tempData, borderColor: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.1)', tension: 0.4, yAxisID: 'y1' }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { position: 'top' } },
-                    scales: {
-                        x: { grid: { display: false } },
-                        y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'ADC (Higher = Drier)'} },
-                        y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, title: {display: true, text: '°C'} }
-                    }
-                }
-            });
-        }
-
+        /* ── Initial data fetch ── */
         async function fetchInitialData() {
             try {
                 const res = await fetch('/api/data');
@@ -410,37 +541,36 @@
                     updateValues(latest);
                     updateSVGs(latest);
                     initChart(data);
-                    
                     document.getElementById('telemetry-log').innerHTML = '';
                     data.forEach(row => prependLogEntry(row));
                 }
-            } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
         }
 
+        /* ── WebSocket ── */
         function buildWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-            
+
             const indicator = document.getElementById('ws-indicator');
-            
+
             ws.onopen = () => {
                 indicator.classList.replace('bg-red-500', 'bg-emerald-500');
                 indicator.classList.add('ws-connected');
-                indicator.title = "WebSocket Streaming Active";
+                indicator.title = 'WebSocket Streaming Active';
             };
-            
+
             ws.onmessage = (event) => {
                 const latest = JSON.parse(event.data);
                 updateValues(latest);
                 updateSVGs(latest);
-                
-                if(chartInstance && latest.timestamp) {
-                    const timeStr = new Date(latest.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+
+                if (chartInstance && latest.timestamp) {
+                    const timeStr = new Date(latest.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                     chartInstance.data.labels.push(timeStr);
                     chartInstance.data.datasets[0].data.push(latest.soil_moisture);
                     chartInstance.data.datasets[1].data.push(latest.temperature);
-                    
-                    if(chartInstance.data.labels.length > 30) {
+                    if (chartInstance.data.labels.length > 30) {
                         chartInstance.data.labels.shift();
                         chartInstance.data.datasets[0].data.shift();
                         chartInstance.data.datasets[1].data.shift();
@@ -449,11 +579,11 @@
                 }
                 prependLogEntry(latest);
             };
-            
+
             ws.onclose = () => {
                 indicator.classList.replace('bg-emerald-500', 'bg-red-500');
                 indicator.classList.remove('ws-connected');
-                indicator.title = "WebSocket Disconnected";
+                indicator.title = 'WebSocket Disconnected';
                 setTimeout(buildWebSocket, 3000);
             };
         }
@@ -461,8 +591,7 @@
         initConfig();
         loadWeatherWidget();
         fetchInitialData().then(buildWebSocket);
-        setInterval(loadWeatherWidget, 10 * 60 * 1000); // refresh weather every 10 mins
-
+        setInterval(loadWeatherWidget, 10 * 60 * 1000);
     </script>
 </body>
 </html>
