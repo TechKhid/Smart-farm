@@ -16,16 +16,16 @@ dht_sensor = dht.DHT11(Pin(15)) # Temp/Hum
 
 # --- CONSTANTS & THRESHOLDS ---
 SOIL_DRY_LIMIT = 40000        # Example ADC value: higher is drier, turn ON pump
-SOIL_MOIST_LIMIT = 25000      # Turn OFF pump
+SOIL_MOIST_LIMIT = 35000      # Turn OFF pump earlier (approx 65-70% in UI)
 HEAT_OVERRIDE_TEMP = 35       # Celsius
 LDR_NIGHT_THRESHOLD = 50000   # Higher = darker
-RELAY_ACTIVE_LOW = True
+RELAY_ACTIVE_LOW = False
 
 # --- GLOBAL STATE ---
 pump_state_str = "OFF"
 use_weather_api = False
 last_watered = 0
-COOLDOWN_SEC = 300 # 5 minutes cooldown after watering
+COOLDOWN_SEC = 0 # Disabled for demonstration
 global_lat = config.LATITUDE
 global_lon = config.LONGITUDE
 
@@ -74,17 +74,9 @@ def set_pump(state, reason=""):
 
 def water_burst():
     set_pump("ON", "Short Burst")
-    time.sleep(5)
-    set_pump("OFF", "Cooldown")
-    global last_watered
-    last_watered = time.time()
 
 def water_full():
     set_pump("ON", "Full Water")
-    time.sleep(15)
-    set_pump("OFF", "Cooldown")
-    global last_watered
-    last_watered = time.time()
 
 # --- BACKEND COMMS ---
 def sync_config():
@@ -188,12 +180,7 @@ def main():
             # Push Telemetry (do inside try block so failure doesn't crash main loop)
             push_telemetry(soil_raw, temp, hum, ldr_raw, rain_det_phys)
             
-            # Cooldown logic enforcement
-            time_since_watered = time.time() - last_watered
-            if last_watered > 0 and time_since_watered < COOLDOWN_SEC:
-                print(f"In cooldown. {COOLDOWN_SEC - time_since_watered}s remaining.")
-                time.sleep(10)
-                continue
+            # Cooldown disabled for demo
                 
             # PRIORITY 1: RAIN OVERRIDE (WITH API VERIFICATION)
             is_raining = rain_det_phys
@@ -223,7 +210,12 @@ def main():
                 elif soil_raw < SOIL_MOIST_LIMIT:
                     set_pump("OFF", "Adequately Moist")
                 else:
-                    print("Soil moisture in hysteresis deadband. Holding state.")
+                    # If we are in the deadband and already ON, but it's getting very wet (>70% approx), force OFF
+                    # This prevents the "Saturated yet ON" confusion in the demo
+                    if soil_raw < 33000: # ~70% threshold
+                        set_pump("OFF", "Hysteresis High Limit")
+                    else:
+                        print("Soil moisture in hysteresis deadband. Holding state.")
             
         except Exception as e:
             print("Main loop encountered error:", e)

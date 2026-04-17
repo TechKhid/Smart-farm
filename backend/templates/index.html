@@ -95,7 +95,7 @@
 
                 <!-- API Override Toggle -->
                 <div class="flex items-center space-x-4 bg-white/50 py-2 px-4 rounded-full border border-white/60 shadow-sm">
-                    <span class="text-gray-600 font-semibold text-sm">Weather AI Override</span>
+                    <span class="text-gray-600 font-semibold text-sm">Weather verification Override</span>
                     <label class="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" id="api-toggle" class="sr-only peer">
                       <div class="w-12 h-6 bg-gray-300 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-indigo-500 nav-toggle-switch shadow-inner"></div>
@@ -148,9 +148,12 @@
                         <circle cx="50" cy="50" r="20" class="sun-core text-amber-500" id="sun-core" fill="currentColor"/>
                     </svg>
                 </div>
-                <div class="flex items-baseline space-x-1">
-                    <span class="text-3xl font-black text-gray-800" id="val-ldr">--</span>
-                    <span class="text-xs font-bold text-gray-400 uppercase">ADC</span>
+                <div class="flex flex-col items-center justify-center w-full">
+                    <div class="flex items-baseline space-x-1">
+                        <span class="text-3xl font-black text-gray-800" id="val-ldr">--</span>
+                        <span class="text-lg font-bold text-gray-400">%</span>
+                    </div>
+                    <span class="text-xs font-bold mt-1 uppercase" id="val-ldr-desc"></span>
                 </div>
             </div>
 
@@ -160,8 +163,12 @@
                 <div class="relative w-16 h-16 mb-2 flex items-center justify-center">
                     <svg viewBox="0 0 24 24" class="w-10 h-10 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S12 3 12 3s-4.5 4.03-4.5 9 2.015 9 4.5 9z"></path></svg>
                 </div>
-                <div class="flex items-baseline justify-center w-full">
-                    <span class="text-2xl font-black text-gray-800 break-all" id="val-soil">--</span>
+                <div class="flex flex-col items-center justify-center w-full">
+                    <div class="flex items-baseline space-x-1">
+                        <span class="text-3xl font-black text-gray-800" id="val-soil">--</span>
+                        <span class="text-lg font-bold text-gray-400">%</span>
+                    </div>
+                    <span class="text-xs font-bold mt-1 uppercase" id="val-soil-desc"></span>
                 </div>
             </div>
 
@@ -235,6 +242,27 @@
                 el.innerText = Math.round(current + (diff * (step/steps)));
                 if(step >= steps) { el.innerText = target; clearInterval(interval); }
             }, 20);
+        }
+
+        function updateValues(latest) {
+            // Conversions mapping ADC approximations to Intuitive 0-100% Percentages
+            const ldrPercent = Math.max(0, Math.min(100, Math.round(latest.ldr / 36000 * 100)));
+            const soilPercent = Math.max(0, Math.min(100, Math.round(100 - ((latest.soil_moisture - 20000) / (65535 - 20000) * 100))));
+            
+            tweenValue('val-temp', latest.temperature);
+            tweenValue('val-hum', latest.humidity);
+            tweenValue('val-soil', soilPercent);
+            tweenValue('val-ldr', ldrPercent);
+
+            const soilDescEl = document.getElementById('val-soil-desc');
+            if (soilPercent < 30) { soilDescEl.innerText = "DRY"; soilDescEl.className = "text-xs font-bold text-rose-500 mt-1 uppercase"; }
+            else if (soilPercent < 70) { soilDescEl.innerText = "ADEQUATE"; soilDescEl.className = "text-xs font-bold text-emerald-500 mt-1 uppercase"; }
+            else { soilDescEl.innerText = "SATURATED"; soilDescEl.className = "text-xs font-bold text-blue-500 mt-1 uppercase"; }
+
+            const ldrDescEl = document.getElementById('val-ldr-desc');
+            if (ldrPercent < 20) { ldrDescEl.innerText = "DARK"; ldrDescEl.className = "text-xs font-bold text-gray-600 mt-1 uppercase"; }
+            else if (ldrPercent < 65) { ldrDescEl.innerText = "SHADED"; ldrDescEl.className = "text-xs font-bold text-yellow-600 mt-1 uppercase"; }
+            else { ldrDescEl.innerText = "BRIGHT SUN"; ldrDescEl.className = "text-xs font-bold text-amber-500 mt-1 uppercase"; }
         }
 
         async function loadWeatherWidget() {
@@ -379,10 +407,7 @@
                 const { data } = await res.json();
                 if (data && data.length > 0) {
                     const latest = data[0];
-                    tweenValue('val-temp', latest.temperature);
-                    tweenValue('val-hum', latest.humidity);
-                    tweenValue('val-soil', latest.soil_moisture);
-                    tweenValue('val-ldr', latest.ldr);
+                    updateValues(latest);
                     updateSVGs(latest);
                     initChart(data);
                     
@@ -406,10 +431,7 @@
             
             ws.onmessage = (event) => {
                 const latest = JSON.parse(event.data);
-                tweenValue('val-temp', latest.temperature);
-                tweenValue('val-hum', latest.humidity);
-                tweenValue('val-soil', latest.soil_moisture);
-                tweenValue('val-ldr', latest.ldr);
+                updateValues(latest);
                 updateSVGs(latest);
                 
                 if(chartInstance && latest.timestamp) {
